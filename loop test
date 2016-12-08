@@ -1,0 +1,212 @@
+/*
+   Copyright (c) 2016 Intel Corporation.  All rights reserved.
+   See license notice at end of file.
+*/
+
+
+///////////////////////THESE ARE THE VARIABLES YOU SHOULD CHANGE TO MATCH YOUR SHADOW THEATER SETUP////////////////////////////////////////
+
+//snow animation lights
+
+//int pos[] = {0, 1, 2, 20, 21, 22, 40, 41, 42}; // which LEDs are available for animation?  They will be called in order from left to right.
+int posMatrix[5][1] = {
+       {5},
+       {0},
+       {4}, 
+       {2},
+       {14},
+ //      {7},
+ //      {8},
+ //      {5},
+ //      {0}
+       }; // which LEDs are available for animation?  They will be called in order from left(top) to right(bottom).
+
+int numLeds = 5;  //how many animation pixels are in the array above?
+
+int shadowPixel = 13;///  main shadow-casting LED at the end of the strand.
+
+int lightHousePixel = 12; //pixel for the lights in the rear house
+
+int firePixelR = 15;  //pixel for flickering firelight for front houses.
+int firePixelY = 16;  //pixel for flickering firelight for front houses.
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+#define BLYNK_PRINT Serial    // Comment this out to disable prints and save space
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+
+// You should get Auth Token in the Blynk App.
+// Go to the Project Settings (nut icon).
+char auth[] = "4c668dc1b74d42b2a4c075866003b586";  ///  you can get your auth token from your Blynk App and paste it inside the "".
+
+// Your WiFi credentials.
+// Set password to "" for open networks.
+char ssid[] = "phorn";
+char pass[] = "1357911131";
+
+// #include <Adafruit_NeoPixel.h>
+// #include <BlynkSimpleCurieBLE.h>
+// #include <CurieBLE.h>
+
+// #define PIN 6
+
+int v0 = 0;  //variables to hold incoming values from Blynk
+int v1 = 0;
+int v2 = 0;
+int v3 = 350;
+
+int fadeup = 0;   //variables for light animation smoothing
+int fadedown = 0;
+
+int firetimer = 0; /// variables to make the fire flicker
+unsigned long fireinterval = 50;
+int flicker = 0;
+
+unsigned long lightcounter = 0;  //variable for counting through the animating lights forever
+
+int stp = 0;  ///light steps for ainimation.  One for the current light to turn it on, and one for the old light to turn it off.
+int stpOld = 0;
+
+unsigned long timer = 0;
+unsigned long interval = 0;
+
+
+
+
+//not using a strip
+//Adafruit_NeoPixel strip = Adafruit_NeoPixel(60, PIN, NEO_GRB + NEO_KHZ800);  ////  set up the light strip.  If your LED strip has more or less than 60 pixels, change the first number to match your strip.
+
+void setup() {
+
+  Serial.begin(9600);
+
+  for (int i = 0; i < numLeds; i++) {  //turn all animation LEDs off.
+  pinMode(posMatrix[i][0],  OUTPUT);
+  }   // sets the pins as output
+//    strip.setPixelColor(pos[i], 0, 0, 0);
+
+pinMode(shadowPixel, OUTPUT); //  set pins as output pins
+pinMode(lightHousePixel, OUTPUT); //  set pins as output pins
+pinMode(firePixelR, OUTPUT); //  set pins as output pins
+pinMode(firePixelY, OUTPUT); //  set pins as output pins
+
+  
+  timer = millis();
+//  strip.begin();
+//  strip.show(); // Initialize all pixels to 'off'
+
+//  blePeripheral.setLocalName("ShadowTheatre");
+//  blePeripheral.setDeviceName("ShadowTheatre");
+//  blePeripheral.setAppearance(384);
+
+  Blynk.begin(auth, ssid, pass);
+
+//  blePeripheral.begin();
+  
+  interval = v3;  //time interval of 350ms for snow animation
+}
+
+
+void loop() {
+  Blynk.run(); //Blynk stuff for real-time controll
+//  blePeripheral.poll();
+  
+  ////////turn on the shadow pixel and control with Blynk
+//  strip.setPixelColor(shadowPixel, 200 - v2, 160 - v2, 160 - v2); //turns shadow light on, v2 (sent from Blynk app) changes the light.
+  analogWrite(shadowPixel, v2); //turns shadow light on, v2 (sent from Blynk app) dims or brightens the light (if pin is PWM capable).
+
+
+  //fire
+  if ((millis() - firetimer) > fireinterval) {
+    firetimer = millis();
+    flicker = random(0, 350);  //when a set time interval passes, change the brightness of the fire randomly between 0 and 40.
+  }
+  if (v0 > 1) {  
+    analogWrite(firePixelY, 700 - v0 - flicker);  // the fire = the brightness of the slider in Blink, + the flicker value, weighted towards red
+    analogWrite(firePixelR, 654 + v0 - flicker);  // the fire = the brightness of the slider in Blink, + the flicker value, weighted towards red
+  }
+  else {
+    analogWrite(firePixelY, 0);  //only turn on the fire if the Blynk slider is > 0.
+    analogWrite(firePixelR, 0);  //only turn on the fire if the Blynk slider is > 0.
+  }
+
+  //houselights
+  if (v1 > 1) {
+    analogWrite(lightHousePixel, v1);  ///  if the Houselights Slider in Blynk is >0, control the house lights in the rear house. else turn off.
+  }
+  else {
+    analogWrite(lightHousePixel, 0);  
+  }
+
+ /* //snow animation
+  if ((millis() - timer) > interval) { //every time the interval passes, move one step forward and reset fades, interval updates from Blynk sketch.
+    stpOld = stp;
+    timer = millis();
+    lightcounter++;
+    stp = (lightcounter % numLeds) ; /// counts over and over from zero to numLeds-1
+    fadeup = 0;   //reset fade values every time the interval passes
+    fadedown = 500;
+  }
+
+  fadeup += 10;
+  fadeup = constrain(fadeup, 0, 500);
+  
+  fadedown -= 10;
+  fadedown = constrain(fadedown, 0, 500);
+*/  
+  for (int i = 0; i < numLeds; i++) {  //turn all animation LEDs off.
+  analogWrite(posMatrix[i][0], 0);  }
+
+  for (int i = 0; i < numLeds; i++) {  //turn all animation LEDs off.
+//  Serial.println(i);
+   for (int j = 0; j < 500; j+=5) {
+     stp = i;
+      analogWrite(posMatrix[stp][0], j);  ///Set the selected pixel to the current "fadeup" value
+      analogWrite(posMatrix[stpOld][0], 500 - j);  //Set the old pixel to the current "fadedown" value
+     delay(5);
+      stpOld = i;
+         }
+ //       analogWrite(posMatrix[stpOld][0], 0);  //Set the old pixel to the current "fadedown" value
+//Serial.println(stpOld);
+  }  
+//  strip.show();  //finally, send all the current color values out to the LED strip for display.
+}
+
+
+
+////  when new signals come in from Blynk, they update the global variables v0, v1, and v2.
+BLYNK_WRITE(V0) //The Fireplace Slider Widget is writing to pin V0
+{
+  v0 = param.asInt();
+}
+BLYNK_WRITE(V1) //The Houselights Slider Widget is writing to pin V1
+{
+  v1 = param.asInt();
+} BLYNK_WRITE(V2) //Main Shadow LED Slider Widget is writing to pin V2
+{
+  v2 = param.asInt();
+}
+BLYNK_WRITE(V3) //The Fireplace Slider Widget is writing to pin V0
+{
+  interval = param.asInt();
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////////////
+/*
+   This library is free software; you can redistribute it and/or
+   modify it under the terms of the GNU Lesser General Public
+   License as published by the Free Software Foundation; either
+   version 2.1 of the License, or (at your option) any later version.
+
+   This library is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Lesser General Public License for more details.
+
+   You should have received a copy of the GNU Lesser General Public
+   License along with this library; if not, write to the Free Software
+   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+*/
